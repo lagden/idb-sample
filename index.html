@@ -1,0 +1,65 @@
+
+<!DOCTYPE html>
+<html>
+	<head>
+		<title>iDB</title>
+		<meta charset="utf-8">
+		<meta http-equiv="X-UA-Compatible" content="IE=edge">
+		<meta name="viewport" content="width=device-width, initial-scale=1">
+	</head>
+	<body>
+		<h1>Exemplo... veja no console</h1>
+		<script src="./node_modules/idb/lib/idb.js"></script>
+		<script type="module">
+			import dados from './fixtures.js'
+
+			async function openDB() {
+				const db = await idb.open('chat', 1, upgradeDB => {
+					const messages = upgradeDB.createObjectStore('messages', {keyPath: 'id'})
+					messages.createIndex('room', 'room', {unique: false})
+				})
+				return db
+			}
+
+			async function put(db, data) {
+				const tx = db.transaction('messages', 'readwrite')
+				const messages = tx.objectStore('messages')
+				await messages.put(data)
+				return tx.complete
+			}
+
+			async function find(db, room) {
+				const tx = db.transaction('messages', 'readonly')
+				const messages = tx.objectStore('messages').index('room')
+				const res = await messages.getAll(room)
+				await tx.complete
+				return res.sort((a, b) => a.date - b.date)
+			}
+
+			async function demo() {
+				// Abre conexão
+				const db = await openDB()
+
+				// Insere os dados
+				const puts = []
+				dados.forEach(dado => {
+					puts.push(put(db, dado))
+				})
+				await Promise.all(puts)
+
+				// Encontra
+				const resA = await find(db, '37046_950619')
+				console.log('resA', resA)
+
+				// Encontra
+				const resB = await find(db, '37046_950620')
+				console.log('resB', resB)
+			}
+
+			demo()
+				.catch(err => {
+					console.log(err)
+				})
+		</script>
+	</body>
+</html>
